@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>歌曲下载器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 520px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    padding: 36px 32px 28px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .header .icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 26px;
+    margin-bottom: 12px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: #9ca3af;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 11px 14px;
+    font-size: 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+
+  .field input:focus {
+    border-color: #667eea;
+  }
+
+  .progress-wrap {
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    margin-bottom: 18px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .progress-wrap.active { opacity: 1; }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .progress-bar.indeterminate {
+    width: 40%;
+    animation: sweep 1.2s ease-in-out infinite;
+  }
+
+  @keyframes sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    font-family: inherit;
+    letter-spacing: 2px;
+  }
+
+  .btn:hover  { opacity: 0.92; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .status {
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 12px;
+    min-height: 18px;
+    transition: color 0.3s;
+  }
+
+  .status.success { color: #10b981; }
+  .status.error   { color: #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="icon">🎵</div>
+    <h1>歌曲下载器</h1>
+    <p>输入歌曲名称和链接，一键下载到本地</p>
+  </div>
+
+  <div class="field">
+    <label>歌曲名称</label>
+    <input type="text" id="nameInput" placeholder="例如：三十岁的女人" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <label>歌曲链接</label>
+    <input type="text" id="urlInput" placeholder="https://kg.qq.com/node/play?s=..." autocomplete="off">
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar indeterminate" id="progressBar"></div>
+  </div>
+
+  <button class="btn" id="downloadBtn" onclick="downloadSong()">下  载</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
+function setStatus(text, cls) {
+  const el = document.getElementById("status");
+  el.textContent = text;
+  el.className = "status " + (cls || "");
+}
+
+function toggleLoading(active) {
+  const btn = document.getElementById("downloadBtn");
+  const wrap = document.getElementById("progressWrap");
+  btn.disabled = active;
+  btn.textContent = active ? "下载中..." : "下  载";
+  wrap.className = "progress-wrap" + (active ? " active" : "");
+}
+
+async function downloadSong() {
+  const name = document.getElementById("nameInput").value.trim();
+  const url  = document.getElementById("urlInput").value.trim();
+
+  if (!name) { setStatus("请输入歌曲名称", "error"); return; }
+  if (!url)  { setStatus("请输入歌曲链接", "error"); return; }
+
+  toggleLoading(true);
+  setStatus("正在获取页面信息...");
+
+  try {
+    // Fetch the page via CORS proxy
+    const pageResp = await fetch(CORS_PROXY + encodeURIComponent(url));
+    if (!pageResp.ok) throw new Error("页面请求失败: " + pageResp.status);
+    const html = await pageResp.text();
+
+    // Extract play_name title
+    const titleMatch = html.match(/<h2[^>]*class="[^"]*play_name[^"]*"[^>]*>([^<]+)<\/h2>/);
+    const pageTitle = titleMatch ? titleMatch[1].trim() : name;
+
+    // Extract media URL
+    let mediaUrl = null;
+    const playurlMatch = html.match(/"playurl"\s*:\s*"(http[^"]+\.(?:m4a|mp3)[^"]*)"/);
+    if (playurlMatch) {
+      mediaUrl = playurlMatch[1];
+    } else {
+      const urlMatch = html.match(/(https?:\/\/[^"\s<>]+\.(?:m4a|mp3)[^"\s<>]*)/);
+      if (urlMatch) mediaUrl = urlMatch[1];
+    }
+
+    if (!mediaUrl) {
+      toggleLoading(false);
+      setStatus("未在页面中找到音频文件（页面：" + pageTitle + "）", "error");
+      return;
+    }
+
+    setStatus("正在下载音频...");
+
+    // Download audio file (media server usually allows direct access)
+    const audioResp = await fetch(mediaUrl);
+    if (!audioResp.ok) throw new Error("音频下载失败: " + audioResp.status);
+    const blob = await audioResp.blob();
+
+    // Determine extension
+    const ext = mediaUrl.includes(".m4a") ? ".m4a" : ".mp3";
+    const safeName = name.replace(/[<>:"/\\|?*]/g, "_");
+    const filename = safeName + ext;
+
+    // Trigger browser download
+    const downloadUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(downloadUrl);
+
+    const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+    toggleLoading(false);
+    setStatus("下载完成 - " + filename + " (" + sizeMB + " MB)", "success");
+
+  } catch (err) {
+    toggleLoading(false);
+    if (err.message.includes("Failed to fetch") || err.message.includes("NetworkError")) {
+      setStatus("无法连接，请检查网络或链接是否正确", "error");
+    } else {
+      setStatus("下载失败: " + err.message, "error");
+    }
+  }
+}
+
+// Enter key triggers download
+document.getElementById("urlInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") downloadSong();
+});
+document.getElementById("nameInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") downloadSong();
+});
+</script>
+</body>
+</html>
