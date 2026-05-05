@@ -8,7 +8,7 @@ import io
 app = Flask(__name__)
 CORS(app)  # 启用CORS
 
-@app.route('/api/download', methods=['POST'])
+@app.route('/api/download', methods=['POST', 'OPTIONS'])
 def download():
     try:
         data = request.json
@@ -31,9 +31,10 @@ def download():
         title_match = re.search(r'<h2[^>]*class="[^"]*play_name[^"]*"[^>]*>(.*?)</h2>', html)
         page_title = title_match.group(1).strip() if title_match else name
 
-        # 提取音频URL - 像原来一样用多个正则模式
+        # 提取音频URL：全民K歌页面通常直接包含 playurl
         media_url = None
         patterns = [
+            r'"playurl"\s*:\s*"(https?://[^"]+)"',
             r'"playurl"\s*:\s*"(http[^"]+\.(?:m4a|mp3)[^"]*)"',
             r'(https?://[^\s"<>]+\.(?:m4a|mp3)[^\s"<>]*)',
         ]
@@ -77,7 +78,6 @@ def download():
     except Exception as e:
         return jsonify({'success': False, 'error': f'下载失败: {str(e)}'}), 500
 
-@app.route('/api/download', methods=['POST', 'OPTIONS'])
 @app.route('/')
 def index():
     # 提供HTML文件
