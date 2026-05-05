@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import requests
 import re
 import os
 import io
 
 app = Flask(__name__)
+CORS(app)  # 启用CORS
 
 @app.route('/api/download', methods=['POST'])
 def download():
@@ -75,6 +77,7 @@ def download():
     except Exception as e:
         return jsonify({'success': False, 'error': f'下载失败: {str(e)}'}), 500
 
+@app.route('/api/download', methods=['POST', 'OPTIONS'])
 @app.route('/')
 def index():
     # 提供HTML文件
